@@ -46,6 +46,18 @@ func (r *Room) ListenForSignals(conn *websocket.Conn, peerConnection *webrtc.Pee
 				continue
 			}
 
+			//adding tracks of existing participants in room before sending answer
+			r.Mutex.RLock()
+			for _, otherParticipant := range r.Participants {
+				if otherParticipant.Conn != conn && otherParticipant.VideoTrack != nil {
+					log.Panicf("Adding track %s to new participant %s", otherParticipant.VideoTrack.ID(), conn.RemoteAddr())
+					if _, err := peerConnection.AddTrack(otherParticipant.VideoTrack); err != nil {
+						log.Println("Error adding existing track:", err)
+					}
+				}
+			}
+			r.Mutex.RUnlock()
+
 			answer, err := peerConnection.CreateAnswer(nil)
 			if err != nil {
 				log.Panicln("Error creating answer:", err)
@@ -62,6 +74,24 @@ func (r *Room) ListenForSignals(conn *websocket.Conn, peerConnection *webrtc.Pee
 
 			if err := conn.WriteMessage(websocket.TextMessage, answerMsg); err != nil {
 				log.Println("Error sending answer:", err)
+			}
+
+		case "answer":
+			answer := webrtc.SessionDescription{}
+			payloadStr, _ := json.Marshal(signal.Payload)
+			json.Unmarshal(payloadStr, &answer)
+
+			if err := peerConnection.SetRemoteDescription(answer); err != nil {
+				log.Panicln("Error setting remote description for answer:", err)
+			}
+		
+		case "candidate":
+			candidate := webrtc.ICECandidateInit{}
+			payloadStr, _ := json.Marshal(signal.Payload)
+			json.Unmarshal(payloadStr, &candidate)
+
+			if err := peerConnection.AddICECandidate(candidate); err != nil {
+				log.Println("Error adding ICE candidate:", err)
 			}
 		
 		default: 

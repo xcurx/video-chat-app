@@ -16,7 +16,7 @@ type Socket struct {
 }
 
 func InitializeSocket() *Socket {
-	return &Socket{
+	return &Socket{	
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				return true
@@ -27,9 +27,9 @@ func InitializeSocket() *Socket {
 }
 
 func (s *Socket) HandleConnect(c *gin.Context) {
-    roomID := c.Param("roomID")
+	roomID := c.Param("roomID")
 	if roomID == "" {
-        c.JSON(400, gin.H{"error": "roomID is required"})
+		c.JSON(400, gin.H{"error": "roomID is required"})
 	}
 
 	conn, err := s.upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -50,6 +50,18 @@ func (s *Socket) HandleConnect(c *gin.Context) {
 	}
 
 	room.AddParticipant(conn, peerConnection)
+	currentParticipant := room.Participants[conn]
+
+	peerConnection.OnICECandidate(func(c *webrtc.ICECandidate) {
+		if c == nil {
+			return
+		}
+
+		currentParticipant.Send(Signal{
+			Type: "candidate",
+			Payload: c.ToJSON(),
+		})
+	})
 
 	peerConnection.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		log.Printf(
@@ -58,9 +70,65 @@ func (s *Socket) HandleConnect(c *gin.Context) {
 			remoteTrack.Codec().MimeType,
 			remoteTrack.SSRC(),
 		)
-        //IMPORTANT: we have to handle track forwarding
+
+		localTrack, newTrackErr := webrtc.NewTrackLocalStaticRTP(
+			remoteTrack.Codec().RTPCodecCapability,
+			remoteTrack.ID(),
+			remoteTrack.StreamID(),
+		)
+		if newTrackErr != nil {
+			log.Panicln("Error creating local track:", newTrackErr)
+			return
+		}
+
+		currentParticipant.VideoTrack = localTrack
+
+		go func() {
+			rtpBuf := make([]byte, 1500)
+			for {
+				i, _, readErr := remoteTrack.Read(rtpBuf)
+				if readErr != nil {
+					log.Println("Track reaf error:", readErr)
+					return
+				}
+				if _, writeErr := localTrack.Write(rtpBuf[:i]); writeErr != nil {
+					log.Println("Track write error:", writeErr)
+					return
+				}
+			}
+		}()
+
+		// looping through all participants to add new track to their connection
+		room.Mutex.RLock()
+		defer room.Mutex.RUnlock()
+		for otherConn, otherParticipant := range room.Participants {
+			if otherConn == conn {
+				continue // this is the sender itself
+			}
+
+			log.Printf("Adding track %s to participant %s", localTrack.ID(), otherParticipant.Conn.RemoteAddr())
+			if _, err := otherParticipant.PeerConnection.AddTrack(localTrack); err != nil {
+				log.Println("Error adding track to other participants:", err)
+				continue
+			}
+
+			//creating new offer to inform client about new track
+			offer, err := otherParticipant.PeerConnection.CreateOffer(nil)
+			if err != nil {
+				log.Println("Error creating renegotiation offer:", err)
+				continue
+			}
+
+			if err := otherParticipant.PeerConnection.SetLocalDescription(offer); err != nil {
+				log.Println("Error setting local description:", err)
+				continue
+			}
+
+			otherParticipant.Send(Signal{Type: "offer", Payload: offer})
+		}
 	})
 
+	// message handling loop
 	err = room.ListenForSignals(conn, peerConnection)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Error occured"})
