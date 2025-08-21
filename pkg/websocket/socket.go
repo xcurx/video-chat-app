@@ -16,13 +16,13 @@ type Socket struct {
 }
 
 func InitializeSocket() *Socket {
-	return &Socket{	
+	return &Socket{
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				return true
 			},
 		},
-		roomManager: NewRoomMaanger(),
+		roomManager: NewRoomManager(),
 	}
 }
 
@@ -34,6 +34,7 @@ func (s *Socket) HandleConnect(c *gin.Context) {
 
 	conn, err := s.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
+		log.Printf("Websocket upgrade failed: %v\n", err)
 		c.JSON(500, gin.H{"error": "Failed to upgrade connection"})
 		return
 	}
@@ -50,7 +51,13 @@ func (s *Socket) HandleConnect(c *gin.Context) {
 	}
 
 	room.AddParticipant(conn, peerConnection)
+	
+	// Handle new participant setup - ensure existing tracks are available
+	// room.HandleNewParticipant(conn)
+	
+	room.Mutex.RLock()
 	currentParticipant := room.Participants[conn]
+	room.Mutex.RUnlock()
 
 	peerConnection.OnICECandidate(func(c *webrtc.ICECandidate) {
 		if c == nil {
@@ -58,7 +65,7 @@ func (s *Socket) HandleConnect(c *gin.Context) {
 		}
 
 		currentParticipant.Send(Signal{
-			Type: "candidate",
+			Type:    "candidate",
 			Payload: c.ToJSON(),
 		})
 	})
@@ -81,7 +88,9 @@ func (s *Socket) HandleConnect(c *gin.Context) {
 			return
 		}
 
+		room.Mutex.Lock()
 		currentParticipant.VideoTrack = localTrack
+		room.Mutex.Unlock()
 
 		go func() {
 			rtpBuf := make([]byte, 1500)
@@ -100,7 +109,6 @@ func (s *Socket) HandleConnect(c *gin.Context) {
 
 		// looping through all participants to add new track to their connection
 		room.Mutex.RLock()
-		defer room.Mutex.RUnlock()
 		for otherConn, otherParticipant := range room.Participants {
 			if otherConn == conn {
 				continue // this is the sender itself
@@ -124,8 +132,13 @@ func (s *Socket) HandleConnect(c *gin.Context) {
 				continue
 			}
 
-			otherParticipant.Send(Signal{Type: "offer", Payload: offer})
+			if err := otherParticipant.Send(Signal{Type: "offer", Payload: offer}); err != nil {
+				log.Println("Error sending renegotiation offer:", err)
+				continue
+			}
+			log.Printf("Renegotiation offer sent to participant %s", otherParticipant.Conn.RemoteAddr())
 		}
+		room.Mutex.RUnlock()
 	})
 
 	// message handling loop

@@ -1,36 +1,26 @@
 package server
 
 import (
-	"flag"
 	"net/http"
-	"os"
-)
 
-var (
-	addr = flag.String("addr", os.Getenv("PORT"), "server address")
-	// cert = flag.String("cert", "", "")
-	// key = flag.String("key", "", "")
-	
+	"github.com/xcurx/video/internal/handlers"
+	"github.com/xcurx/video/pkg/websocket"
 )
-
 type Server struct {
 	port int
 }
 
 func InitializeServer() *http.Server {
-	flag.Parse()
-    
-	if *addr == "" {
-		*addr = ":8080"
-	}
-
 	NewServer := &Server {
 		port : 8080,
 	}
 
+	socketService := websocket.InitializeSocket()
+	wsHandler := handlers.NewWebSocketHandler(socketService)
+
 	server := &http.Server {
-		Addr:   *addr,
-		Handler: NewServer.ResgisterRouter(),
+		Addr:   ":8080",
+		Handler: NewServer.ResgisterRouter(wsHandler),
 	}
 
 	return server
