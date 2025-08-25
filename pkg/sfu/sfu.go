@@ -44,7 +44,20 @@ func (r *Room) AddPeer(peer *Peer) {
 func (r *Room) RemovePeer(peerID string) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
+
+	peer, ok := r.Peers[peerID]
+	if !ok {
+		r.mutex.Unlock()
+		return
+	}
+	peer.PC.Close()
 	delete(r.Peers, peerID)
+    
+	for _, otherPeer := range r.Peers {
+		otherPeer.SendSignal(Signal{Type: "remove", Payload: r.LocalTracks[peerID].StreamID()})
+	}
+ 
+	delete(r.LocalTracks, peerID)
 }
 
 // addTrackToRoom adds a new track to the room and broadcasts it to all peers.
@@ -53,6 +66,7 @@ func (r *Room) addTrackToRoom(t webrtc.TrackLocal, id string) {
 	defer r.mutex.Unlock()
 
 	r.LocalTracks[id] = t
+	log.Println(t.StreamID())
 
 	// add the new track to all existing peers in the room
 	// this will trigger OnNegotiationNeeded for each peer, sending them a new offer.

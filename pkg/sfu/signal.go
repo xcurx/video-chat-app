@@ -122,3 +122,8 @@ func (p *Peer) handleAnswer(conn *websocket.Conn, payload interface{}) {
 	}
 }
 
+func (p *Peer) handleLeave(r *Room) {
+	log.Printf("Peer %s is leaving the room %s", p.ID, r.ID)
+	r.RemovePeer(p.ID)
+}
+
