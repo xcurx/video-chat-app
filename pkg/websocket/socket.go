@@ -50,10 +50,16 @@ func (s *Socket) HandleConnect(c *gin.Context) {
 		return
 	}
 
+	// assign the websocket connection to the peer's SendSignal func
+	peer.SendSignal = func(s sfu.Signal) error {
+		return conn.WriteJSON(s)
+	}
+	log.Printf("SendSignal set: %v\n", peer.SendSignal != nil)
+
 	room.AddPeer(peer)
 	log.Printf("Peer %s joined room %s", peer.ID, room.ID)
 
-	peer.HandleSignal(conn)
+	peer.HandleSignal(conn, room)
 
 	room.RemovePeer(peer.ID)
 	log.Printf("Peer %s left room %s", peer.ID, room.ID)
