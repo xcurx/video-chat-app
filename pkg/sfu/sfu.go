@@ -21,6 +21,7 @@ type Room struct {
 type Peer struct {
 	ID string
 	PC *webrtc.PeerConnection
+	Tracks map[string]*webrtc.TrackRemote
 	SendSignal func(s Signal) error
 }
 
@@ -52,12 +53,16 @@ func (r *Room) RemovePeer(peerID string) {
 	}
 	peer.PC.Close()
 	delete(r.Peers, peerID)
+
+	removedTracks := []string{}
+	for trackID := range peer.Tracks {
+		removedTracks = append(removedTracks, trackID)
+		delete(r.LocalTracks, trackID)
+	}
     
 	for _, otherPeer := range r.Peers {
-		otherPeer.SendSignal(Signal{Type: "remove", Payload: r.LocalTracks[peerID].StreamID()})
+		otherPeer.SendSignal(Signal{Type: "remove", Payload: removedTracks})
 	}
- 
-	delete(r.LocalTracks, peerID)
 }
 
 // addTrackToRoom adds a new track to the room and broadcasts it to all peers.
@@ -65,7 +70,7 @@ func (r *Room) addTrackToRoom(t webrtc.TrackLocal, id string) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	r.LocalTracks[id] = t
+	r.LocalTracks[t.StreamID()] = t
 	log.Println(t.StreamID())
 
 	// add the new track to all existing peers in the room
@@ -101,6 +106,7 @@ func NewPeer(id string, room *Room) (*Peer, error) {
 	peer := &Peer{
 		ID: id,
 		PC: pc,
+		Tracks: make(map[string]*webrtc.TrackRemote),
 	}
 
 	pc.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
@@ -112,6 +118,8 @@ func NewPeer(id string, room *Room) (*Peer, error) {
 			log.Printf("Error creating local track for forwarding: %v", newTrackErr)
 			return
 		}
+
+		peer.Tracks[remoteTrack.StreamID()] = remoteTrack
 
 		// add this new local track to the room
 		room.addTrackToRoom(localTrack, id)
