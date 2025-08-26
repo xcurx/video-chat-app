@@ -2,12 +2,9 @@ package sfu
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"sync"
-	"time"
 
-	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 )
  
@@ -124,38 +121,10 @@ func NewPeer(id string, room *Room) (*Peer, error) {
 		// add this new local track to the room
 		room.addTrackToRoom(localTrack, id)
 
-        go func() {
-			ticker := time.NewTicker(time.Second * 2)
-			defer ticker.Stop()
-
-			for range ticker.C {
-				err := pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(remoteTrack.SSRC())}})
-				if err != nil {
-					log.Printf("Error sending PLI: %v", err)
-					return
-				}
-			}
-		}()
-
+        go pli(pc, remoteTrack)
+		
 		// continuously read RTP packets from the remote track and write them to the local track
-		go func() {
-			rtpBuf := make([]byte, 1500)
-			for {
-				i, _, readErr := remoteTrack.Read(rtpBuf)
-				if readErr != nil {
-					if readErr == io.EOF {
-						return // track ended
-					}
-					log.Printf("Error reading from remote track: %v", readErr)
-					return
-				}
-
-				if _, writeErr := localTrack.Write(rtpBuf[:i]); writeErr != nil && writeErr != io.ErrClosedPipe {
-					log.Printf("Error writing to local track: %v", writeErr)
-					return
-				}
-			}
-		}()
+		go readTrack(localTrack, remoteTrack)
 	})
 
 	pc.OnNegotiationNeeded(func() {
