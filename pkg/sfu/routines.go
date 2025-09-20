@@ -22,12 +22,13 @@ func pli(pc *webrtc.PeerConnection, remoteTrack *webrtc.TrackRemote) {
 	}
 }
 
-func readTrack(localTrack *webrtc.TrackLocalStaticRTP, remoteTrack *webrtc.TrackRemote) {
+func readTrack(localTrack *webrtc.TrackLocalStaticRTP, remoteTrack *webrtc.TrackRemote, room *Room) {
 	rtpBuf := make([]byte, 1500)
 	for {
 		i, _, readErr := remoteTrack.Read(rtpBuf)
 		if readErr != nil {
 			if readErr == io.EOF {
+                room.RemoveTrack(remoteTrack.StreamID() ,remoteTrack.ID())
 				return // track ended
 			}
 			log.Printf("Error reading from remote track: %v", readErr)

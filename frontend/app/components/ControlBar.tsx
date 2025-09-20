@@ -1,37 +1,51 @@
 import { Button } from '@/components/ui/button'
 import { MicIcon, MicOffIcon, PhoneOffIcon, VideoIcon, VideoOffIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import React, { useState } from 'react'
-
-interface Participant {
-  id: string
-  name: string
-  isVideoEnabled: boolean
-  isAudioEnabled: boolean
-  isCurrentUser: boolean
-}
+import React, { RefObject, useState } from 'react'
+import { sendSignal } from '../websocket/sendSignal'
 
 interface ControlBarProps {
-  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>
+  wsRef: RefObject<WebSocket | null>;
+  localStreamRef?: React.RefObject<MediaStream | null>
+  startSharing: (kind: 'video' | 'audio') => Promise<void>
+  onLeave: () => void,
+  controles: {video: boolean, audio: boolean}
 }
-  
 
-const ControlBar = ({setParticipants}:ControlBarProps) => {
+const ControlBar = ({wsRef, localStreamRef, startSharing, controles}:ControlBarProps) => {
   const router = useRouter()
-  const [isVideoEnabled, setIsVideoEnabled] = useState(true)
-  const [isAudioEnabled, setIsAudioEnabled] = useState(true)
+  const [isVideoEnabled, setIsVideoEnabled] = useState(controles.video)
+  const [isAudioEnabled, setIsAudioEnabled] = useState(controles.audio)
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
 
-  const toggleVideo = () => {
-    setIsVideoEnabled(!isVideoEnabled)
-    // Update current user's video status
-    setParticipants((prev) => prev.map((p) => (p.isCurrentUser ? { ...p, isVideoEnabled: !isVideoEnabled } : p)))
+  const toggleVideo = async () => {
+    if (isVideoEnabled) {
+      localStreamRef?.current?.getVideoTracks().forEach(track => track.enabled = false)
+      setIsVideoEnabled(false)
+    } else {
+      if (localStreamRef?.current?.getVideoTracks().length) {
+        localStreamRef.current.getVideoTracks().forEach(track => track.enabled = true)
+      } else {
+        await startSharing('video')
+      }
+      setIsVideoEnabled(true)
+    }
+    sendSignal({wsRef, type: 'toggle-video', payload: !isVideoEnabled })
   }
 
-  const toggleAudio = () => {
-    setIsAudioEnabled(!isAudioEnabled)
-    // Update current user's audio status
-    setParticipants((prev) => prev.map((p) => (p.isCurrentUser ? { ...p, isAudioEnabled: !isAudioEnabled } : p)))
+  const toggleAudio = async () => {
+    if (isAudioEnabled) {
+      localStreamRef?.current?.getAudioTracks().forEach(track => track.enabled = false)
+      setIsAudioEnabled(false)
+    } else {
+      if (localStreamRef?.current?.getAudioTracks().length) {
+        localStreamRef.current.getAudioTracks().forEach(track => track.enabled = true)
+      } else {
+        await startSharing('audio')
+      }
+      setIsAudioEnabled(true)
+    }
+    sendSignal({wsRef, type: 'toggle-audio', payload: !isAudioEnabled })
   }
 
   const handleLeaveRoom = () => {

@@ -1,3 +1,4 @@
+import { Peer } from "@/types/types";
 import { RefObject } from "react";
 
 interface HandleLeaveRoomArgs {
@@ -7,9 +8,10 @@ interface HandleLeaveRoomArgs {
     localVideoRef: RefObject<HTMLVideoElement | null>;
     setIsConnected: (connected: boolean) => void;
     setRemoteStreams: React.Dispatch<React.SetStateAction<Map<string, MediaStream>>>;
+    setPeers: React.Dispatch<React.SetStateAction<Map<string, Peer>>>; // Optional, in case you want to clear peers as well
 }
 
-export const handleLeaveRoom = ({wsRef, pcRef, localStreamRef, localVideoRef, setIsConnected, setRemoteStreams}: HandleLeaveRoomArgs) => {
+export const handleLeaveRoom = ({wsRef, pcRef, localStreamRef, localVideoRef, setIsConnected, setRemoteStreams, setPeers}: HandleLeaveRoomArgs) => {
     pcRef.current?.close();
     pcRef.current = null;
     wsRef.current?.close();
@@ -18,5 +20,6 @@ export const handleLeaveRoom = ({wsRef, pcRef, localStreamRef, localVideoRef, se
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     setIsConnected(false);
     setRemoteStreams(new Map()); // Clear all remote streams
+    setPeers(new Map()); // Clear all peers if needed
     console.log('Left the room and cleaned up.');
 }

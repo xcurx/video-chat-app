@@ -6,12 +6,12 @@ import React from 'react'
 interface HeaderProps {
   roomId: string
   roomName: string | null
-  participants: { id: string; name: string }[]
+  participants?: { id: string; name: string }[]
   isChatOpen: boolean
   setIsChatOpen: React.Dispatch<React.SetStateAction<boolean>>
 }
 
-const Header = ({roomId, roomName, participants, isChatOpen, setIsChatOpen}:HeaderProps) => {
+const Header = ({roomId, roomName, isChatOpen, setIsChatOpen}:HeaderProps) => {
   return (
     <header className="bg-card border-b border-border px-4 py-3">
       <div className="flex items-center justify-between">
@@ -25,7 +25,7 @@ const Header = ({roomId, roomName, participants, isChatOpen, setIsChatOpen}:Head
           </div>
           <Badge variant="secondary" className="bg-secondary text-secondary-foreground">
             <UsersIcon className="h-3 w-3 mr-1" />
-            {participants.length} participants
+            {/* {participants.length} participants */}
           </Badge>
         </div>
 

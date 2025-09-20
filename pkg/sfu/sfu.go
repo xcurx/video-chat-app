@@ -11,22 +11,25 @@ import (
 type Room struct {
 	ID string
 	Peers map[string]*Peer
-    LocalTracks map[string]webrtc.TrackLocal
+    LocalTracks map[string][]webrtc.TrackLocal
 	mutex sync.RWMutex
 }
 
 type Peer struct {
 	ID string
 	PC *webrtc.PeerConnection
-	Tracks map[string]*webrtc.TrackRemote
+	StreamID string
+	Streams map[string][]*webrtc.TrackRemote
 	SendSignal func(s Signal) error
+	IsVideoEnabled bool
+	IsAudioEnabled bool
 }
 
 func NewRoom(id string) *Room {
     return &Room{
 		ID: id,
 		Peers: make(map[string] *Peer),
-		LocalTracks: make(map[string]webrtc.TrackLocal),
+		LocalTracks: make(map[string][]webrtc.TrackLocal),
 	}
 }
 
@@ -51,14 +54,14 @@ func (r *Room) RemovePeer(peerID string) {
 	peer.PC.Close()
 	delete(r.Peers, peerID)
 
-	removedTracks := []string{}
-	for trackID := range peer.Tracks {
-		removedTracks = append(removedTracks, trackID)
-		delete(r.LocalTracks, trackID)
+	removedStreams := []string{}
+	for streamID := range peer.Streams {
+		removedStreams = append(removedStreams, streamID)
+		delete(r.LocalTracks, streamID)
 	}
     
 	for _, otherPeer := range r.Peers {
-		otherPeer.SendSignal(Signal{Type: "remove", Payload: removedTracks})
+		otherPeer.SendSignal(Signal{Type: "remove", Payload: removedStreams})
 	}
 }
 
@@ -67,7 +70,7 @@ func (r *Room) addTrackToRoom(t webrtc.TrackLocal, id string) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	r.LocalTracks[t.StreamID()] = t
+	r.LocalTracks[t.StreamID()] = append(r.LocalTracks[t.StreamID()], t)
 	log.Println(t.StreamID())
 
 	// add the new track to all existing peers in the room
@@ -76,6 +79,7 @@ func (r *Room) addTrackToRoom(t webrtc.TrackLocal, id string) {
 		if peer.ID == id {
 			continue
 		}
+		log.Println("Adding new track to peer: ", peer.ID)
 		if _, err := peer.PC.AddTrack(t); err != nil {
 			log.Printf("Error adding new track %s to peer %s: %v", t.ID(), peer.ID, err)
 			continue
@@ -103,7 +107,9 @@ func NewPeer(id string, room *Room) (*Peer, error) {
 	peer := &Peer{
 		ID: id,
 		PC: pc,
-		Tracks: make(map[string]*webrtc.TrackRemote),
+		Streams: make(map[string][]*webrtc.TrackRemote),
+		IsVideoEnabled: false,
+		IsAudioEnabled: false,
 	}
 
 	pc.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
@@ -116,7 +122,16 @@ func NewPeer(id string, room *Room) (*Peer, error) {
 			return
 		}
 
-		peer.Tracks[remoteTrack.StreamID()] = remoteTrack
+		if localTrack.Kind() == webrtc.RTPCodecTypeVideo {
+			peer.IsVideoEnabled = true
+		}
+		if localTrack.Kind() == webrtc.RTPCodecTypeAudio {
+			peer.IsAudioEnabled = true
+		}
+
+		// NotifyPeerUpdate(room, peer)
+
+		peer.Streams[remoteTrack.StreamID()] = append(peer.Streams[remoteTrack.StreamID()], remoteTrack)
 
 		// add this new local track to the room
 		room.addTrackToRoom(localTrack, id)
@@ -124,7 +139,7 @@ func NewPeer(id string, room *Room) (*Peer, error) {
         go pli(pc, remoteTrack)
 		
 		// continuously read RTP packets from the remote track and write them to the local track
-		go readTrack(localTrack, remoteTrack)
+		go readTrack(localTrack, remoteTrack, room)
 	})
 
 	pc.OnNegotiationNeeded(func() {
@@ -155,4 +170,83 @@ func NewPeer(id string, room *Room) (*Peer, error) {
 	})
 
 	return peer, nil
+}
+
+func (r *Room) RemoveTrack(streamID string, trackID string) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	tracks, ok := r.LocalTracks[streamID]
+	if !ok {
+		log.Printf("No tracks found for stream %s in room %s", streamID, r.ID)
+		return
+	}
+
+	var updatedTracks []webrtc.TrackLocal
+	for _, t := range tracks {
+		if t.ID() != trackID {
+			updatedTracks = append(updatedTracks, t)
+		}
+	}
+	if len(updatedTracks) == len(tracks) {
+		log.Printf("Track %s not found in stream %s of room %s", trackID, streamID, r.ID)
+		return
+	}
+	r.LocalTracks[streamID] = updatedTracks
+	log.Printf("Track %s removed from room %s", trackID, r.ID)
+}
+
+func (r *Room) GetPeerInfoExcept(peer *Peer) []interface{} {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	var peers []interface{}
+	for _, p := range r.Peers {
+		if p.ID == peer.ID {
+			continue
+		}
+		type peerPayload struct {
+			ID string `json:"id"`
+			IsVideoEnabled bool `json:"isVideoEnabled"`
+			IsAudioEnabled bool `json:"isAudioEnabled"`
+			StreamId string `json:"streamId"`
+		}
+		peers = append(peers, peerPayload{
+			ID: p.ID,
+			IsVideoEnabled: p.IsVideoEnabled,
+			IsAudioEnabled: p.IsAudioEnabled,
+			StreamId: p.StreamID,
+		})
+	}
+	return peers
+}
+
+func NotifyPeerUpdate(r *Room, p *Peer) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	for _, peer := range r.Peers {
+		if peer.ID == p.ID {
+			continue
+		}
+
+		var streamId string
+		for _, track := range p.Streams {
+			streamId = track[0].StreamID()
+			break
+		}
+
+		type peerPayload struct {
+			ID string `json:"id"`
+			IsVideoEnabled bool `json:"isVideoEnabled"`
+			IsAudioEnabled bool `json:"isAudioEnabled"`
+			StreamId string `json:"streamId"`
+		}
+
+		peer.SendSignal(Signal{Type: "peer-update", Payload: peerPayload{
+			ID: p.ID,
+			IsVideoEnabled: p.IsVideoEnabled,
+			IsAudioEnabled: p.IsAudioEnabled,
+			StreamId: streamId,
+		}})
+	}
 }
