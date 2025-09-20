@@ -5,6 +5,7 @@ import { Peer } from "../room/[roomId]/page";
 
 interface WebSocketArgs {
     url: string;
+    name: string;
     wsRef: RefObject<WebSocket | null>;
     pcRef: RefObject<RTCPeerConnection | null>;
     localStreamRef: RefObject<MediaStream | null>;
@@ -14,7 +15,7 @@ interface WebSocketArgs {
     setPeers: React.Dispatch<React.SetStateAction<Map<string, Peer>>>;
 }
 
-export const wsInit = ({url, wsRef, pcRef, localStreamRef, localVideoRef, setIsConnected, setRemoteStreams, setPeers}: WebSocketArgs) => {
+export const wsInit = ({url, name, wsRef, pcRef, localStreamRef, localVideoRef, setIsConnected, setRemoteStreams, setPeers}: WebSocketArgs) => {
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
@@ -151,6 +152,7 @@ export const wsInit = ({url, wsRef, pcRef, localStreamRef, localVideoRef, setIsC
                 wsRef, 
                 type: 'connection-made', 
                 payload: { 
+                  name,
                   streamId,
                   isVideoEnabled: localStreamRef.current.getVideoTracks()[0]?.enabled || false,
                   isAudioEnabled: localStreamRef.current.getAudioTracks()[0]?.enabled || false

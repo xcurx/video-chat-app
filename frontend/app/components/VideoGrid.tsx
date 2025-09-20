@@ -27,10 +27,18 @@ const VideoGrid = ({participants, localStreamRef, controles}:VideoGridProps) => 
   return (
     <div className={`flex-1 p-4 transition-all duration-300`}>
       <div className={`grid gap-2 w-full h-full ${getGridCols(1+Array.from(participants.keys()).length)}`}>
-        {  localStreamRef?.current?
+        {  localStreamRef?.current && (
             (<Card className="overflow-hidden bg-card border-border py-0">
               <CardContent className="p-0 h-full flex items-center justify-center">
                   <div className="relative w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                     { !controles.video && (
+                      <div className="text-center absolute bg-zinc-800/70 aspect-video h-full w-full flex justify-center items-center flex-col">
+                        <div className="w-16 h-16 bg-primary/30 rounded-full flex items-center justify-center mb-2 mx-auto">
+                          <span className="text-2xl font-semibold text-primary">{"Y"}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">You</p>
+                      </div>
+                    )}
                      <video
                       autoPlay
                       playsInline
@@ -41,7 +49,7 @@ const VideoGrid = ({participants, localStreamRef, controles}:VideoGridProps) => 
                     ></video>
                     <div className='absolute w-full bottom-2 left-0 px-2 flex justify-between space-x-2'>
                       <Badge className='bg-black/40 text-white'>
-                        Name
+                        You
                       </Badge>
                       <div className='flex space-x-2'>
                         {controles.audio? (
@@ -58,19 +66,7 @@ const VideoGrid = ({participants, localStreamRef, controles}:VideoGridProps) => 
                     </div>
                   </div>
               </CardContent>
-            </Card>) : (
-                <Card className="overflow-hidden bg-card border-border py-0">
-              <CardContent className="p-0 h-full flex items-center justify-center">
-                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="w-16 h-16 bg-primary/30 rounded-full flex items-center justify-center mb-2 mx-auto">
-                          <span className="text-2xl font-semibold text-primary">?</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">No Video</p>
-                      </div>
-                  </div>
-              </CardContent>
-            </Card>
+            </Card>) 
             )
         }
         {Array.from(participants.entries()).map(([id ,peer]) => {
@@ -83,24 +79,27 @@ const VideoGrid = ({participants, localStreamRef, controles}:VideoGridProps) => 
               <CardContent className="p-0 h-full flex items-center justify-center">
                 { hasVideo || hasAudio ? (
                   <div className="relative w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                    {/* Placeholder for video feed
-                    <div className="text-center">
-                      <div className="w-16 h-16 bg-primary/30 rounded-full flex items-center justify-center mb-2 mx-auto">
-                        <span className="text-2xl font-semibold text-primary">{participant.name.charAt(0)}</span>
+                    {/* Placeholder for video feed */}
+                    { !peer.isVideoEnabled && (
+                      <div className="text-center absolute bg-zinc-800/70 aspect-video h-full w-full flex justify-center items-center flex-col">
+                        <div className="w-16 h-16 bg-primary/30 rounded-full flex items-center justify-center mb-2 mx-auto">
+                          <span className="text-2xl font-semibold text-primary">{peer.name.charAt(0)}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{peer.name}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">Video Feed</p>
-                    </div> */}
+                    )}
                      <video
                       autoPlay
                       playsInline
-                      className='aspect-video w-full h-full object-cover bg-black'
+                      className='aspect-video w-full h-full object-cover'
+
                       ref={(video) => {
                         if (video) video.srcObject = peer.remoteStream || null;
                       }}
                     ></video>
                     <div className='absolute w-full bottom-2 left-0 px-2 flex justify-between space-x-2'>
                       <Badge className='bg-black/40 text-white'>
-                        Name
+                        {peer.name || "Unknown"}
                       </Badge>
                       <div className='flex space-x-2'>
                         {peer.isAudioEnabled? (
@@ -117,10 +116,13 @@ const VideoGrid = ({participants, localStreamRef, controles}:VideoGridProps) => 
                     </div>
                   </div>
                 ) : (
-                  <div className='text-red-600'>
-                    No video
+                  <div className="text-center aspect-video h-full w-full flex justify-center items-center flex-col">
+                    <div className="w-16 h-16 bg-primary/30 rounded-full flex items-center justify-center mb-2 mx-auto">
+                      <span className="text-2xl font-semibold text-primary">{peer.name.charAt(0)}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{peer.name}</p>
                   </div>
-                ) }
+                ) } 
               </CardContent>
             </Card>
           )

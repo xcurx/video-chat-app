@@ -16,6 +16,7 @@ import { getMedia } from "@/app/utils/getMedia"
 
 export interface Peer {
   id: string
+  name: string
   isVideoEnabled: boolean
   isAudioEnabled: boolean
   streamId?: string
@@ -26,6 +27,7 @@ export default function RoomPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const roomId = params.roomId as string
+  const [name, setName] = useState("")
   const [isConnected, setIsConnected] = useState(false)
   const localVideoRef = useRef<HTMLVideoElement>(null);
   // remoteStreams will now store MediaStream objects directly from the SFU
@@ -79,6 +81,7 @@ export default function RoomPage() {
     // initialize WebSocket and peer connection and event handlers
     wsInit({
       url: `ws://localhost:8080/ws/${roomId}`,
+      name: name,
       wsRef,
       pcRef,
       localStreamRef,
@@ -107,7 +110,15 @@ export default function RoomPage() {
 
   if (!isConnected) {
     return (  
-        <OnJoin roomId={roomId} roomName={roomName as string} handleJoinRoom={handleJoinRoom} controles={controles} setControles={setControles}/>
+        <OnJoin 
+         roomId={roomId} 
+         roomName={roomName as string} 
+         name={name}
+         setName={setName} 
+         handleJoinRoom={handleJoinRoom} 
+         controles={controles} 
+         setControles={setControles}
+        />
     )
   }
 

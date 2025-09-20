@@ -17,6 +17,7 @@ type Room struct {
 
 type Peer struct {
 	ID string
+	Name string
 	PC *webrtc.PeerConnection
 	StreamID string
 	Streams map[string][]*webrtc.TrackRemote
@@ -129,8 +130,6 @@ func NewPeer(id string, room *Room) (*Peer, error) {
 			peer.IsAudioEnabled = true
 		}
 
-		// NotifyPeerUpdate(room, peer)
-
 		peer.Streams[remoteTrack.StreamID()] = append(peer.Streams[remoteTrack.StreamID()], remoteTrack)
 
 		// add this new local track to the room
@@ -206,12 +205,14 @@ func (r *Room) GetPeerInfoExcept(peer *Peer) []interface{} {
 		}
 		type peerPayload struct {
 			ID string `json:"id"`
+			Name string `json:"name"`
 			IsVideoEnabled bool `json:"isVideoEnabled"`
 			IsAudioEnabled bool `json:"isAudioEnabled"`
 			StreamId string `json:"streamId"`
 		}
 		peers = append(peers, peerPayload{
 			ID: p.ID,
+			Name: p.Name,
 			IsVideoEnabled: p.IsVideoEnabled,
 			IsAudioEnabled: p.IsAudioEnabled,
 			StreamId: p.StreamID,
@@ -237,6 +238,7 @@ func NotifyPeerUpdate(r *Room, p *Peer) {
 
 		type peerPayload struct {
 			ID string `json:"id"`
+			Name string `json:"name"`
 			IsVideoEnabled bool `json:"isVideoEnabled"`
 			IsAudioEnabled bool `json:"isAudioEnabled"`
 			StreamId string `json:"streamId"`
@@ -244,6 +246,7 @@ func NotifyPeerUpdate(r *Room, p *Peer) {
 
 		peer.SendSignal(Signal{Type: "peer-update", Payload: peerPayload{
 			ID: p.ID,
+			Name: p.Name,
 			IsVideoEnabled: p.IsVideoEnabled,
 			IsAudioEnabled: p.IsAudioEnabled,
 			StreamId: streamId,

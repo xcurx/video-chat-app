@@ -199,18 +199,21 @@ func (p *Peer) handleConnectionMade(payload interface{}, r *Room) {
 	}
 	log.Println("StreamID received: ", peerData["streamId"].(string))
 
+	p.Name = peerData["name"].(string)
 	p.StreamID = peerData["streamId"].(string)
 	p.IsAudioEnabled = peerData["isAudioEnabled"].(bool)
 	p.IsVideoEnabled = peerData["isVideoEnabled"].(bool)
 
 	type peerPayload struct {
 		ID string `json:"id"`
+		Name string `json:"name"`
 		IsVideoEnabled bool `json:"isVideoEnabled"`
 		IsAudioEnabled bool `json:"isAudioEnabled"`
 		StreamId string `json:"streamId"`
 	}
 	var peerSignal = peerPayload{
 		ID: p.ID,
+		Name: p.Name,
 		IsVideoEnabled: p.IsVideoEnabled,
 		IsAudioEnabled: p.IsAudioEnabled,
 		StreamId: p.StreamID,
@@ -230,12 +233,14 @@ func (p *Peer) handleToggleVideo(payload interface{}, r *Room) {
 
 	type peerPayload struct {
 		ID string `json:"id"`
+		Name string `json:"name"`
 		IsVideoEnabled bool `json:"isVideoEnabled"`
 		IsAudioEnabled bool `json:"isAudioEnabled"`
 		StreamId string `json:"streamId"`
 	}
 	var peerSignal = peerPayload{
 		ID: p.ID,
+		Name: p.Name,
 		IsVideoEnabled: p.IsVideoEnabled,
 		IsAudioEnabled: p.IsAudioEnabled,
 		StreamId: p.StreamID,
@@ -255,12 +260,14 @@ func (p *Peer) handleToggleAudio(payload interface{}, r *Room) {
 
 	type peerPayload struct {
 		ID string `json:"id"`
+		Name string `json:"name"`
 		IsVideoEnabled bool `json:"isVideoEnabled"`
 		IsAudioEnabled bool `json:"isAudioEnabled"`
 		StreamId string `json:"streamId"`
 	}
 	var peerSignal = peerPayload{
 		ID: p.ID,
+		Name: p.Name,
 		IsVideoEnabled: p.IsVideoEnabled,
 		IsAudioEnabled: p.IsAudioEnabled,
 		StreamId: p.StreamID,

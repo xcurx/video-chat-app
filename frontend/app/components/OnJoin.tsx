@@ -1,16 +1,19 @@
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { MicIcon, MicOffIcon, User, VideoIcon, VideoOffIcon } from 'lucide-react'
 import React from 'react'
 
 interface OnJoinProps {
   roomId?: string
   roomName?: string
+  name: string
+  setName: React.Dispatch<React.SetStateAction<string>>
   handleJoinRoom: () => Promise<void>
   controles: {video: boolean, audio: boolean}
   setControles: React.Dispatch<React.SetStateAction<{video: boolean; audio: boolean}>>
 }
 
-const OnJoin = ({roomId, roomName, handleJoinRoom, controles, setControles}:OnJoinProps) => {
+const OnJoin = ({roomId, roomName, name, setName, handleJoinRoom, controles, setControles}:OnJoinProps) => {
   return (
      <div className="h-screen bg-background flex items-center justify-center p-6">
         <div className="max-w-md w-full space-y-6">
@@ -44,6 +47,10 @@ const OnJoin = ({roomId, roomName, handleJoinRoom, controles, setControles}:OnJo
                 }
               </Button>
             </div>
+          </div>
+
+          <div>
+            <Input value={name} placeholder='Enter name' onChange={(e) => setName(e.target.value)}/>
           </div>
 
           <Button
