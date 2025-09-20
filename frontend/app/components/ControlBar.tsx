@@ -10,42 +10,41 @@ interface ControlBarProps {
   startSharing: (kind: 'video' | 'audio') => Promise<void>
   onLeave: () => void,
   controles: {video: boolean, audio: boolean}
+  setControles: React.Dispatch<React.SetStateAction<{video: boolean, audio: boolean}>>
 }
 
-const ControlBar = ({wsRef, localStreamRef, startSharing, controles}:ControlBarProps) => {
+const ControlBar = ({wsRef, localStreamRef, startSharing, controles, setControles}:ControlBarProps) => {
   const router = useRouter()
-  const [isVideoEnabled, setIsVideoEnabled] = useState(controles.video)
-  const [isAudioEnabled, setIsAudioEnabled] = useState(controles.audio)
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
 
   const toggleVideo = async () => {
-    if (isVideoEnabled) {
+    if (controles.video) {
       localStreamRef?.current?.getVideoTracks().forEach(track => track.enabled = false)
-      setIsVideoEnabled(false)
+      setControles(prev => ({...prev, video: false}))
     } else {
       if (localStreamRef?.current?.getVideoTracks().length) {
         localStreamRef.current.getVideoTracks().forEach(track => track.enabled = true)
       } else {
         await startSharing('video')
       }
-      setIsVideoEnabled(true)
+      setControles(prev => ({...prev, video: true}))
     }
-    sendSignal({wsRef, type: 'toggle-video', payload: !isVideoEnabled })
+    sendSignal({wsRef, type: 'toggle-video', payload: !controles.video })
   }
 
   const toggleAudio = async () => {
-    if (isAudioEnabled) {
+    if (controles.audio) {
       localStreamRef?.current?.getAudioTracks().forEach(track => track.enabled = false)
-      setIsAudioEnabled(false)
+      setControles(prev => ({...prev, audio: false}))
     } else {
       if (localStreamRef?.current?.getAudioTracks().length) {
         localStreamRef.current.getAudioTracks().forEach(track => track.enabled = true)
       } else {
         await startSharing('audio')
       }
-      setIsAudioEnabled(true)
+      setControles(prev => ({...prev, audio: true}))
     }
-    sendSignal({wsRef, type: 'toggle-audio', payload: !isAudioEnabled })
+    sendSignal({wsRef, type: 'toggle-audio', payload: !controles.audio })
   }
 
   const handleLeaveRoom = () => {
@@ -61,21 +60,21 @@ const ControlBar = ({wsRef, localStreamRef, startSharing, controles}:ControlBarP
      <footer className="bg-card border-t border-border px-4 py-4">
         <div className="flex items-center justify-center space-x-4">
           <Button
-            variant={isAudioEnabled ? "default" : "destructive"}
+            variant={controles.audio ? "default" : "destructive"}
             size="lg"
             onClick={toggleAudio}
-            className={isAudioEnabled ? "bg-secondary hover:bg-secondary/90 text-secondary-foreground" : ""}
+            className={controles.audio ? "bg-secondary hover:bg-secondary/90 text-secondary-foreground" : ""}
           >
-            {isAudioEnabled ? <MicIcon className="h-5 w-5" /> : <MicOffIcon className="h-5 w-5" />}
+            {controles.audio ? <MicIcon className="h-5 w-5" /> : <MicOffIcon className="h-5 w-5" />}
           </Button>
 
           <Button
-            variant={isVideoEnabled ? "default" : "destructive"}
+            variant={controles.video ? "default" : "destructive"}
             size="lg"
             onClick={toggleVideo}
-            className={isVideoEnabled ? "bg-secondary hover:bg-secondary/90 text-secondary-foreground" : ""}
+            className={controles.video ? "bg-secondary hover:bg-secondary/90 text-secondary-foreground" : ""}
           >
-            {isVideoEnabled ? <VideoIcon className="h-5 w-5" /> : <VideoOffIcon className="h-5 w-5" />}
+            {controles.video ? <VideoIcon className="h-5 w-5" /> : <VideoOffIcon className="h-5 w-5" />}
           </Button>
 
           <Button

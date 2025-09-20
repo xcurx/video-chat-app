@@ -9,9 +9,10 @@ import React, { RefObject } from 'react'
 interface VideoGridProps {
     participants: Map<string, Peer>
     localStreamRef?: RefObject<MediaStream | null>
+    controles: {video: boolean, audio: boolean}
 }
 
-const VideoGrid = ({participants, localStreamRef}:VideoGridProps) => {
+const VideoGrid = ({participants, localStreamRef, controles}:VideoGridProps) => {
       // Calculate grid layout based on participant count
   const getGridCols = (count: number) => {
     if (count === 1) return "grid-cols-1"
@@ -29,7 +30,7 @@ const VideoGrid = ({participants, localStreamRef}:VideoGridProps) => {
         {  localStreamRef?.current?
             (<Card className="overflow-hidden bg-card border-border py-0">
               <CardContent className="p-0 h-full flex items-center justify-center">
-                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                  <div className="relative w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
                      <video
                       autoPlay
                       playsInline
@@ -38,6 +39,23 @@ const VideoGrid = ({participants, localStreamRef}:VideoGridProps) => {
                         if (video) video.srcObject = localStreamRef.current;
                       }}
                     ></video>
+                    <div className='absolute w-full bottom-2 left-0 px-2 flex justify-between space-x-2'>
+                      <Badge className='bg-black/40 text-white'>
+                        Name
+                      </Badge>
+                      <div className='flex space-x-2'>
+                        {controles.audio? (
+                          <MicIcon size={20} className='text-green-600'/>
+                          ) : (
+                          <MicOffIcon size={20} className='text-red-600'/>
+                        )}
+                        {controles.video? (
+                          <VideoIcon size={20} className='text-green-600'/>
+                          ) : (
+                          <VideoOffIcon size={20} className='text-red-600'/>
+                        ) }
+                      </div>
+                    </div>
                   </div>
               </CardContent>
             </Card>) : (

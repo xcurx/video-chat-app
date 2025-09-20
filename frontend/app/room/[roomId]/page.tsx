@@ -124,7 +124,7 @@ export default function RoomPage() {
       {/* Main Content */}
       <main className="flex-1 flex overflow-auto">
         {/* Video Grid */}
-        <VideoGrid participants={peers} localStreamRef={localStreamRef} />
+        <VideoGrid participants={peers} localStreamRef={localStreamRef} controles={controles}/>
         
 
         {isChatOpen && (
@@ -138,6 +138,7 @@ export default function RoomPage() {
        localStreamRef={localStreamRef}
        startSharing={startSharing}
        controles={controles}
+       setControles={setControles}
        onLeave={() => handleLeaveRoom({
         wsRef,
         pcRef,
